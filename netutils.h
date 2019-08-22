@@ -89,6 +89,6 @@ int get_ipstr_family(const char *ipstr);
 void ignore_sigpipe(void);
 
 /* strerror thread safe version (libuv) */
-#define errstr(errnum) uv_strerror(-(errnum))
+#define errstring(errnum) uv_strerror(-(errnum))
 
 #endif
