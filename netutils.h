@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <uv.h> /* uv_strerror */
 #undef _GNU_SOURCE
 
 /* ipaddr binary len */
@@ -86,5 +87,8 @@ int get_ipstr_family(const char *ipstr);
 
 /* ignore SIGPIPE signal */
 void ignore_sigpipe(void);
+
+/* strerror thread safe version (libuv) */
+#define errstr(errnum) uv_strerror(-(errnum))
 
 #endif
