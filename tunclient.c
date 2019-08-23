@@ -239,6 +239,18 @@ PRINT_HELP_AND_EXIT:
 int main(int argc, char *argv[]) {
     parse_command_args(argc, argv);
 
-    LOGINF("[main] hello, world");
+    LOGINF("[main] server address: %s#%hu", g_svr_ipstr, g_svr_portno);
+    if (g_options & OPTION_IP4) LOGINF("[main] listen address: %s#%hu", g_bind_ipstr4, g_bind_portno);
+    if (g_options & OPTION_IP6) LOGINF("[main] listen address: %s#%hu", g_bind_ipstr6, g_bind_portno);
+    LOGINF("[main] number of threads: %hu", g_thread_num);
+    LOGINF("[main] tunnel ack timeout: %hhu", g_ackwait_sec);
+    LOGINF("[main] client buffer size: %u", g_cli_bufsize);
+    LOGINF("[main] tunnel buffer size: %u", g_tun_bufsize);
+    if (g_socket_mark) LOGINF("[main] outgoing packet mark: %u", g_socket_mark);
+    if (g_options & OPTION_NAT) LOGINF("[main] use redirect instead of tproxy");
+    IF_VERBOSE LOGINF("[main] verbose mode, affect performance");
+
+    // TODO
+
     return 0;
 }
