@@ -43,6 +43,9 @@ void set_reuse_port(int sockfd);
 /* setsockopt(IP_TRANSPARENT) */
 void set_transparent(int sockfd);
 
+/* setsockopt(SO_MARK) */
+void set_socket_mark(int sockfd, uint32_t mark);
+
 /* getsockopt(SO_ORIGINAL_DST) ipv4 */
 bool get_origdstaddr4(int sockfd, skaddr4_t *dstaddr);
 

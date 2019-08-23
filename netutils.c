@@ -51,6 +51,14 @@ void set_transparent(int sockfd) {
     }
 }
 
+/* setsockopt(SO_MARK) */
+void set_socket_mark(int sockfd, uint32_t mark) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_MARK, &mark, sizeof(uint32_t))) {
+        LOGERR("[set_socket_mark] setsockopt(%d, SO_MARK): (%d) %s", sockfd, errno, errstring(errno));
+        exit(errno);
+    }
+}
+
 /* getsockopt(SO_ORIGINAL_DST) ipv4 */
 bool get_origdstaddr4(int sockfd, skaddr4_t *dstaddr) {
     if (getsockopt(sockfd, SOL_IP, SO_ORIGINAL_DST, dstaddr, &(socklen_t){sizeof(skaddr4_t)})) {
