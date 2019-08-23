@@ -217,6 +217,10 @@ static void parse_command_args(int argc, char *argv[]) {
         goto PRINT_HELP_AND_EXIT;
     }
 
+    if (g_options & OPTION_NAT) {
+        strcpy(g_bind_ipstr4, IP4ADDRSTR_WILDCARD);
+        strcpy(g_bind_ipstr6, IP6ADDRSTR_WILDCARD);
+    }
     build_ipv4_addr(&g_bind_skaddr4, g_bind_ipstr4, g_bind_portno);
     build_ipv6_addr(&g_bind_skaddr6, g_bind_ipstr6, g_bind_portno);
 
