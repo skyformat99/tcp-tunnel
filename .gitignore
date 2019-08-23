@@ -2,3 +2,5 @@
 *.gch
 tun-client
 tun-server
+tunclient
+tunserver
