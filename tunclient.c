@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #undef _GNU_SOURCE
@@ -26,6 +27,9 @@ enum {
 
 /* if verbose logging */
 #define IF_VERBOSE if (g_verbose)
+
+/* function declaration */
+static void* run_event_loop(void *arg);
 
 /* static global variables */
 static bool      g_verbose                = false; /* verbose mode */
@@ -250,7 +254,18 @@ int main(int argc, char *argv[]) {
     if (g_options & OPTION_NAT) LOGINF("[main] use redirect instead of tproxy");
     IF_VERBOSE LOGINF("[main] verbose mode, affect performance");
 
-    // TODO
+    for (int i = 0; i < g_thread_num - 1; ++i) {
+        if (pthread_create(&(pthread_t){0}, NULL, run_event_loop, NULL)) {
+            LOGERR("[main] failed to create thread: (%d) %s", errno, errstring(errno));
+            exit(errno);
+        }
+    }
+    run_event_loop(NULL);
 
     return 0;
+}
+
+static void* run_event_loop(void *arg __attribute__((unused))) {
+    // TODO
+    return NULL;
 }
