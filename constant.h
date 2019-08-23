@@ -24,4 +24,11 @@
 #define CLIENT_VERSION_STRING "tun-client v1.0"
 #define SERVER_VERSION_STRING "tun-server v1.0"
 
+enum {
+    STATE_QUEUING = 0x01 << 0, /* in the write queue of the tunnel */
+    STATE_LASTMSG = 0x01 << 1, /* currently sending the last msg */
+    STATE_NEEDRST = 0x01 << 2, /* need to reset the connection */
+    STATE_WRERROR = 0x01 << 3, /* error occurred while queued */
+};
+
 #endif
