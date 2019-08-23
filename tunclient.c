@@ -238,6 +238,7 @@ PRINT_HELP_AND_EXIT:
 
 int main(int argc, char *argv[]) {
     parse_command_args(argc, argv);
+
     LOGINF("[main] hello, world");
     return 0;
 }
