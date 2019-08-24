@@ -392,6 +392,7 @@ static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep) {
 static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
     if (status < 0) {
         LOGERR("[tunnel_connect_cb] failed to connect to tun-server: (%d) %s", -status, uv_strerror(status));
+        uv_close(connreq->handle, NULL); /* don't need close_cb */
         tunnel_try_connect(connreq->handle->loop, true);
         return;
     }
@@ -412,7 +413,17 @@ static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize __attribute__((u
 }
 
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf) {
-    // TODO
+    if (nread == 0) return;
+
+    if (nread < 0) {
+        if (nread != UV_EOF) LOGERR("[tunnel_read_cb] failed to read data from socket: (%d) %s", -nread, uv_strerror(nread));
+        uv_close(connreq->handle, NULL); /* don't need close_cb */
+        tunnel_try_connect(tunnel->loop, true);
+        return;
+    }
+
+    loop_data_t *loop_data = tunnel->loop->data;
+    tunnel_handle_data(tunnel, loop_data->buffer, nread);
 }
 
 static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
