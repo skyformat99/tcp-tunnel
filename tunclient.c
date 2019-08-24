@@ -381,7 +381,17 @@ static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep) {
 }
 
 static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
-    // TODO
+    if (status < 0) {
+        LOGERR("[tunnel_connect_cb] failed to connect to tun-server: (%d) %s", -status, uv_strerror(status));
+        tunnel_try_connect(connreq->handle->loop, true);
+        return;
+    }
+
+    uv_stream_t *tunnel = connreq->handle;
+    uv_read_start(tunnel, tunnel_alloc_cb, tunnel_read_cb);
+
+    loop_data_t *loop_data = tunnel->loop->data;
+    loop_data->isready = true;
 }
 
 static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf) {
