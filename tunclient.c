@@ -56,7 +56,7 @@ static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep);
 static void tunnel_connect_cb(uv_connect_t *connreq, int status);
 static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf);
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf);
-static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
+static bool tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
 static void tunnel_write_cb(uv_write_t *writereq, int status);
 static void tunnel_timer_cb(uv_timer_t *acktimer);
 static void tunnel_close_cb(uv_handle_t *tunnel);
@@ -91,7 +91,7 @@ static void print_command_help(void) {
     printf("usage: tun-client <options...>. the existing options are as follows:\n"
            " -s, --server-addr <addr>           server ip or host, default: 127.0.0.1\n"
            " -p, --server-port <port>           server port number, default: 61080\n"
-           " -b, --listen-addr4 <addr>          listen address (ipv4), default: 127.0.0.1\n" 
+           " -b, --listen-addr4 <addr>          listen address (ipv4), default: 127.0.0.1\n"
            " -B, --listen-addr6 <addr>          listen address (ipv6), default: ::1\n"
            " -l, --listen-port <port>           listen port number, default: 61080\n"
            " -j, --thread-num <num>             number of worker threads, default: 2\n"
@@ -390,19 +390,19 @@ static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep) {
 }
 
 static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
+    uv_stream_t *tunnel = connreq->handle;
+    uv_loop_t *loop = tunnel->loop;
+    loop_data_t *loop_data = loop->data;
+
     if (status < 0) {
         LOGERR("[tunnel_connect_cb] failed to connect to tun-server: (%d) %s", -status, uv_strerror(status));
-        uv_close((void *)connreq->handle, NULL); /* don't need close_cb */
-        tunnel_try_connect(connreq->handle->loop, true);
+        uv_close((void *)tunnel, NULL);
+        tunnel_try_connect(loop, true);
         return;
     }
 
     IF_VERBOSE LOGINF("[tunnel_connect_cb] successfully connected to tun-server");
-
-    uv_stream_t *tunnel = connreq->handle;
     uv_read_start(tunnel, tunnel_alloc_cb, tunnel_read_cb);
-
-    loop_data_t *loop_data = tunnel->loop->data;
     loop_data->isready = true;
 }
 
@@ -415,21 +415,55 @@ static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize __attribute__((u
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf) {
     if (nread == 0) return;
 
+    uv_loop_t *loop = tunnel->loop;
+    loop_data_t *loop_data = loop->data;
+
     if (nread < 0) {
         if (nread != UV_EOF) LOGERR("[tunnel_read_cb] failed to read data from socket: (%zd) %s", -nread, uv_strerror(nread));
         uv_close((void *)tunnel, NULL); /* don't need close_cb */
-        tunnel_try_connect(tunnel->loop, true);
+        tunnel_try_connect(loop, true);
         return;
     }
 
-    loop_data_t *loop_data = tunnel->loop->data;
     loop_data->nread = nread + loop_data->offset;
     loop_data->offset = 0;
-    tunnel_handle_data(tunnel, loop_data->buffer, loop_data->nread);
+    if (!tunnel_handle_data(tunnel, loop_data->buffer, loop_data->nread)) return;
 }
 
-static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
-    // TODO
+static bool tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
+    loop_data_t *loop_data = tunnel->loop->data;
+    void *base_buffer = loop_data->buffer;
+
+    while (true) {
+        if (length == 0) return true;
+        switch (*buffer) {
+            case MSGTYPE_HEARTBEAT:
+                if (length < sizeof(msg_heartbeat_t)) {
+                    memmove(base_buffer, buffer, length);
+                    loop_data->offset = length;
+                    return true;
+                }
+                uv_timer_stop(loop_data->timer);
+                length -= sizeof(msg_heartbeat_t);
+                break;
+            case MSGTYPE_ESTABLISH:
+                // TODO
+                break;
+            case MSGTYPE_PAYLOAD:
+                // TODO
+                break;
+            case MSGTYPE_CLOSE:
+                // TODO
+                break;
+            case MSGTYPE_ERROR:
+                // TODO
+                break;
+            default:
+                LOGERR("[tunnel_handle_data] unknown message type: %hhu, try to reconnect...", *buffer);
+                uv_close((void *)tunnel, NULL); /* don't need close_cb */
+                return false;
+        }
+    }
 }
 
 static void tunnel_write_cb(uv_write_t *writereq, int status) {
