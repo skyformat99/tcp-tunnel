@@ -28,8 +28,20 @@ enum {
 /* if verbose logging */
 #define IF_VERBOSE if (g_verbose)
 
+/* thread local typedef */
+typedef struct {
+    uv_tcp_t   *tunnel; /* tunnel object */
+    uv_timer_t *timer; /* ack wait timer */
+    hashset_t  *clients; /* all clients (set) */
+    uint8_t    *buffer; /* tunnel recv buffer */
+    uint32_t    nread; /* recv buffer data length */
+    uint8_t     offset; /* recv buffer begin offset */
+    bool        isready; /* tunnel connection is ready */
+} loop_data_t;
+
 /* function declaration */
 static void* run_event_loop(void *arg);
+static void listener_accept_cb(uv_stream_t *listener, int status);
 
 /* static global variables */
 static bool      g_verbose                = false; /* verbose mode */
@@ -266,6 +278,52 @@ int main(int argc, char *argv[]) {
 }
 
 static void* run_event_loop(void *arg __attribute__((unused))) {
+    uv_loop_t *loop = &(uv_loop_t){0};
+    uv_loop_init(loop);
+
+    loop_data_t *loop_data = &(loop_data_t){0};
+    loop->data = loop_data;
+
+    if (g_options & OPTION_IP4) {
+        uv_tcp_t *listener = malloc(sizeof(uv_tcp_t));
+        listener->data = (void *)OPTION_IP4;
+        uv_tcp_init(loop, listener);
+        uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp4_bindsock() : new_tcp4_bindsock_tproxy());
+        int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr4, 0);
+        if (retval) {
+            LOGERR("[run_event_loop] failed to bind address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
+            exit(-retval);
+        }
+        retval = uv_listen((void *)listener, SOMAXCONN, listener_accept_cb);
+        if (retval) {
+            LOGERR("[run_event_loop] failed to listen address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
+            exit(-retval);
+        }
+    }
+
+    if (g_options & OPTION_IP6) {
+        uv_tcp_t *listener = malloc(sizeof(uv_tcp_t));
+        listener->data = (void *)OPTION_IP6;
+        uv_tcp_init(loop, listener);
+        uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp6_bindsock() : new_tcp6_bindsock_tproxy());
+        int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr6, 0);
+        if (retval) {
+            LOGERR("[run_event_loop] failed to bind address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
+            exit(-retval);
+        }
+        retval = uv_listen((void *)listener, SOMAXCONN, listener_accept_cb);
+        if (retval) {
+            LOGERR("[run_event_loop] failed to listen address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
+            exit(-retval);
+        }
+    }
+
     // TODO
+
+    uv_run(loop, UV_RUN_DEFAULT);
     return NULL;
+}
+
+static void listener_accept_cb(uv_stream_t *listener, int status) {
+    // TODO
 }
