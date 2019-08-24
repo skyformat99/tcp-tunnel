@@ -387,6 +387,8 @@ static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
         return;
     }
 
+    IF_VERBOSE LOGINF("[tunnel_connect_cb] successfully connected to tun-server");
+
     uv_stream_t *tunnel = connreq->handle;
     uv_read_start(tunnel, tunnel_alloc_cb, tunnel_read_cb);
 
