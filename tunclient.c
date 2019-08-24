@@ -40,6 +40,15 @@ typedef struct {
     bool          isready; /* tunnel connection is ready */
 } loop_data_t;
 
+/* client context typedef */
+typedef struct {
+    uint8_t    *clibuffer;
+    uv_write_t *cliwrtreq;
+    uv_write_t *tunwrtreq;
+    uint64_t    peerptr;
+    uint8_t     status;
+} client_data_t;
+
 /* function declaration */
 static void* run_event_loop(void *arg);
 
