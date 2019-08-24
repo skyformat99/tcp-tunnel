@@ -34,7 +34,7 @@ typedef struct {
     uv_connect_t *connreq; /* connect request */
     uv_timer_t   *timer; /* ack wait timer */
     hashset_t    *clients; /* all clients (set) */
-    uint8_t      *buffer; /* tunnel recv buffer */
+    void         *buffer; /* tunnel recv buffer */
     uint32_t      nread; /* recv buffer data length */
     uint8_t       offset; /* recv buffer begin offset */
     bool          isready; /* tunnel connection is ready */
@@ -42,7 +42,7 @@ typedef struct {
 
 /* client context typedef */
 typedef struct {
-    uint8_t    *clibuffer;
+    void       *clibuffer;
     uv_write_t *cliwrtreq;
     uv_write_t *tunwrtreq;
     uint64_t    peerptr;
@@ -405,8 +405,10 @@ static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
     loop_data->isready = true;
 }
 
-static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf) {
-    // TODO
+static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize __attribute__((unused)), uv_buf_t *uvbuf) {
+    loop_data_t *loop_data = tunnel->loop->data;
+    uvbuf->base = loop_data->buffer + loop_data->offset;
+    uvbuf->len = g_tun_bufsize - loop_data->offset;
 }
 
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf) {
