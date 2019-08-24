@@ -30,18 +30,34 @@ enum {
 
 /* thread local typedef */
 typedef struct {
-    uv_tcp_t   *tunnel; /* tunnel object */
-    uv_timer_t *timer; /* ack wait timer */
-    hashset_t  *clients; /* all clients (set) */
-    uint8_t    *buffer; /* tunnel recv buffer */
-    uint32_t    nread; /* recv buffer data length */
-    uint8_t     offset; /* recv buffer begin offset */
-    bool        isready; /* tunnel connection is ready */
+    uv_tcp_t     *tunnel; /* tunnel object */
+    uv_connect_t *connreq; /* connect request */
+    uv_timer_t   *timer; /* ack wait timer */
+    hashset_t    *clients; /* all clients (set) */
+    uint8_t      *buffer; /* tunnel recv buffer */
+    uint32_t      nread; /* recv buffer data length */
+    uint8_t       offset; /* recv buffer begin offset */
+    bool          isready; /* tunnel connection is ready */
 } loop_data_t;
 
 /* function declaration */
 static void* run_event_loop(void *arg);
-static void listener_accept_cb(uv_stream_t *listener, int status);
+
+static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep);
+static void tunnel_connect_cb(uv_connect_t *connreq, int status);
+static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf);
+static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf);
+static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
+static void tunnel_write_cb(uv_write_t *writereq, int status);
+static void tunnel_timer_cb(uv_timer_t *acktimer);
+static void tunnel_close_cb(uv_handle_t *tunnel);
+
+static void client_accept_cb(uv_stream_t *listener, int status);
+static void client_alloc_cb(uv_handle_t *client, size_t sugsize, uv_buf_t *uvbuf);
+static void client_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *uvbuf);
+static void client_write_cb(uv_write_t *writereq, int status);
+static void client_close_cb(uv_handle_t *client);
+static void client_elemfree_cb(void *elem);
 
 /* static global variables */
 static bool      g_verbose                = false; /* verbose mode */
@@ -290,12 +306,12 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
         uv_tcp_init(loop, listener);
         uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp4_bindsock() : new_tcp4_bindsock_tproxy());
         int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr4, 0);
-        if (retval) {
+        if (retval < 0) {
             LOGERR("[run_event_loop] failed to bind address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
-        retval = uv_listen((void *)listener, SOMAXCONN, listener_accept_cb);
-        if (retval) {
+        retval = uv_listen((void *)listener, SOMAXCONN, client_accept_cb);
+        if (retval < 0) {
             LOGERR("[run_event_loop] failed to listen address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
@@ -307,23 +323,111 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
         uv_tcp_init(loop, listener);
         uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp6_bindsock() : new_tcp6_bindsock_tproxy());
         int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr6, 0);
-        if (retval) {
+        if (retval < 0) {
             LOGERR("[run_event_loop] failed to bind address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
-        retval = uv_listen((void *)listener, SOMAXCONN, listener_accept_cb);
-        if (retval) {
+        retval = uv_listen((void *)listener, SOMAXCONN, client_accept_cb);
+        if (retval < 0) {
             LOGERR("[run_event_loop] failed to listen address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
     }
 
-    // TODO
+    loop_data->tunnel = malloc(sizeof(uv_tcp_t));
+    loop_data->connreq = malloc(sizeof(uv_connect_t));
+    loop_data->timer = malloc(sizeof(uv_timer_t));
+    loop_data->clients = hashset_new();
+    loop_data->buffer = malloc(g_tun_bufsize);
+    loop_data->nread = 0;
+    loop_data->offset = 0;
+    loop_data->isready = false;
+
+    uv_timer_t *acktimer = loop_data->timer;
+    uv_timer_init(loop, acktimer);
+    tunnel_try_connect(loop, false);
 
     uv_run(loop, UV_RUN_DEFAULT);
     return NULL;
 }
 
-static void listener_accept_cb(uv_stream_t *listener, int status) {
+static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep) {
+    if (is_sleep) sleep(1);
+    loop_data_t *loop_data = loop->data;
+
+    uv_timer_stop(loop_data->timer);
+    hashset_clear(loop_data->clients, client_elemfree_cb);
+    loop_data->nread = 0;
+    loop_data->offset = 0;
+    loop_data->isready = false;
+
+    uv_tcp_t *tunnel = loop_data->tunnel;
+    uv_tcp_init(loop, tunnel);
+    uv_tcp_nodelay(tunnel, 1);
+
+    IF_VERBOSE LOGINF("[tunnel_try_connect] try to connect to tun-server...");
+
+    int retval;
+    while ((retval = uv_tcp_connect(loop_data->connreq, tunnel, (void *)&g_svr_skaddr, tunnel_connect_cb)) < 0) {
+        LOGERR("[tunnel_try_connect] failed to connect to tun-server: (%d) %s", -retval, uv_strerror(retval));
+        sleep(1);
+    }
+
+    if (g_socket_mark) {
+        int sockfd = -1;
+        uv_fileno((void *)tunnel, &sockfd);
+        set_socket_mark(sockfd, g_socket_mark);
+    }
+}
+
+static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
+    // TODO
+}
+
+static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
+    // TODO
+}
+
+static void tunnel_write_cb(uv_write_t *writereq, int status) {
+    // TODO
+}
+
+static void tunnel_timer_cb(uv_timer_t *acktimer) {
+    // TODO
+}
+
+static void tunnel_close_cb(uv_handle_t *tunnel) {
+    // TODO
+}
+
+static void client_accept_cb(uv_stream_t *listener, int status) {
+    // TODO
+}
+
+static void client_alloc_cb(uv_handle_t *client, size_t sugsize, uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void client_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void client_write_cb(uv_write_t *writereq, int status) {
+    // TODO
+}
+
+static void client_close_cb(uv_handle_t *client) {
+    // TODO
+}
+
+static void client_elemfree_cb(void *elem) {
     // TODO
 }
