@@ -423,7 +423,9 @@ static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *u
     }
 
     loop_data_t *loop_data = tunnel->loop->data;
-    tunnel_handle_data(tunnel, loop_data->buffer, nread);
+    loop_data->nread = nread + loop_data->offset;
+    loop_data->offset = 0;
+    tunnel_handle_data(tunnel, loop_data->buffer, loop_data->nread);
 }
 
 static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
