@@ -24,6 +24,4 @@
                 ##__VA_ARGS__);                                              \
     } while (0)
 
-void set_line_buffering(void) __attribute__((constructor));
-
 #endif
