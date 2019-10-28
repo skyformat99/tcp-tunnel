@@ -55,7 +55,7 @@
 - `uv_tcp_bind()` API 将给底层 fd 绑定一个 source 地址，作用同 bind() 系统调用。成功调用此函数并不意味着地址绑定成功。
 - `uv_tcp_nodelay()` API 会给底层 fd 设置 nodelay 选项，通常只用于已连接的套接字，对于监听套接字，调用它是没有意义的。
 - `uv_tcp_connect()` 发送 connect 请求，在连接成功或连接失败后，会调用我们的回调函数。
-- `uv_tcp_close_reset()` 向对端发送 RST，`uv_shutdown()` 与 `uv_tcp_close_reset()` 只能用一个。
+- `uv_tcp_close_reset()` 向对端发送 RST，它实际上相当于 `uv_close()`，因此要传入 close_cb。
 - `uv_tcp_getsockname()` 等价于 getsockname() 系统调用，获取底层套接字的 self socket address。
 - `uv_tcp_getpeername()` 等价于 getpeername() 系统调用，获取底层套接字的 peer socket address。
 
