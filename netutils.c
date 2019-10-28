@@ -188,8 +188,3 @@ int get_ipstr_family(const char *ipstr) {
         return -1;
     }
 }
-
-/* ignore SIGPIPE signal */
-void ignore_sigpipe(void) {
-    signal(SIGPIPE, SIG_IGN);
-}

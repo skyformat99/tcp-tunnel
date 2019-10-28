@@ -88,9 +88,6 @@ void build_addr_byhostname(skaddr_t *addr, char *ipstr, const char *hostname, po
 /* AF_INET or AF_INET6 or -1(invalid ip string) */
 int get_ipstr_family(const char *ipstr);
 
-/* ignore SIGPIPE signal */
-void ignore_sigpipe(void) __attribute__((constructor));
-
 /* strerror thread safe version (libuv) */
 #define errstring(errnum) uv_strerror(-(errnum))
 
