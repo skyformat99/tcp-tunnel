@@ -34,7 +34,7 @@
 - uv_stream_t 是 tcp、unix_domain_socket、console_file（stdin、stdout、stderr）的抽象，我们只需关心 tcp 的相关东西。
 - 连接请求：`uv_connect_t`，当连接成功或失败，则调用我们传递给它的回调。请求对象有一个 handle 字段，存储与之关联的 handler 对象。
 - 写入请求：`uv_write_t`，当写入成功或失败，则调用我们的传递给它的回调。写入请求可能会排队，回调调用之后才能重用 write_req 对象。写入对象也有一个 handler 字段，指向执行此写入请求的 handler 对象。
-- 关闭请求：`uv_shutdown_t`，关闭请求的工作原理其实是这样的，因为 stream_t 对象有一个写入队列，当这个队列上的所有写入请求都执行完毕后，libuv 会发送 FIN 给对端，然后调用我们的回调。handle 字段同上。
+- 关闭请求：`uv_shutdown_t`，关闭请求的工作原理其实是这样的，因为 stream_t 对象有一个写入队列，当这个队列上的所有写入请求都执行完毕后，libuv 会发送 FIN 给对端，然后调用我们的回调。handle 字段同上。tcp-tunnel 项目上用不到 uv_shutdown()、uv_shutdown_t，因为我们同一时间只有一个 write_req 在进行。
 - `uv_accpet_cb` 用于监听套接字：`void (*uv_accept_cb)(uv_stream_t* server, int status)`，其中 server 是我们的监听套接字 handler 对象，status 如果为负数则表示发生错误。
 - `uv_read_cb` 数据可读回调，注意，read_cb 是在 libuv 从套接字收到数据后，才调用的，因此当 read_cb 调用后，我们就可以从 uv_buf_t 中拿到数据，不用从 socket 中读取它。
   - `nread > 0`：表示成功读取到数据，这些数据存放在 buf_t.base 缓冲区，同时 nread 表示该缓冲区中的有效数据长度。
