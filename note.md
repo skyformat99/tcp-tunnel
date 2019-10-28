@@ -14,7 +14,7 @@
 - 相关的 callback 为 `uv_alloc_cb`，该回调在 tcp/udp 的 read_cb 前执行，我们需要负责填充 `uv_buf_t`（base、len）。
 - 所有的 handler 都有一个 `close_cb` 关闭回调。调用 `uv_close()` 关闭某个事件对象时，需要传入关闭回调，必须在关闭回调中释放内存。
 - handle 对象也有一个 data 字段，存储我们的用户数据，另外还有一个 loop 字段，存储与之关联的 loop 对象，libuv 的 api 设计还是不错的。
-- `uv_is_active()` 用来检测一个 handler 是否为 pending 状态，调用 handler 对象的 start() 方法后，就处于 pending 状态，常用于检测 timer。
+- `uv_is_active()` 用来检测一个 handler 是否为 pending 状态，调用 handler 对象的 start() 方法后，就处于 pending 状态，常用于检测 timer。对于 tcp/udp/stream 涉及 IO 操作的 handle，只要它们正在执行 IO 操作，比如 connecting、accepting、reading、writing 等，都处于 pending 状态。
 - 调用 uv_close() 关闭一个 handler 时，底层 fd 将立即释放，但 close_cb 会在下次事件循环中运行，如果该 handler 上还有正在进行的 request，那么这些 request 的回调将被调用，status 为 UV_ECANCELED。
 - 对于 io 类型的 handler，可以使用 `uv_fileno()` 来获取底层的 fd。
 
