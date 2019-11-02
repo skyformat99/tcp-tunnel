@@ -4,11 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <signal.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <netinet/tcp.h>
 #undef _GNU_SOURCE
 
 #ifndef SO_ORIGINAL_DST
