@@ -3,6 +3,7 @@
 #include "hashset.h"
 #include "logutils.h"
 #include "netutils.h"
+#include "procutils.h"
 #include "protocol.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -20,8 +21,8 @@
 
 /* option flags */
 enum {
-    OPTION_IP4 = 0x01 << 0, /* listen for ipv4 address */
-    OPTION_IP6 = 0x01 << 1, /* listen for ipv6 address */
+    OPTION_IP4 = 0x01 << 0, /* enable ipv4 listening */
+    OPTION_IP6 = 0x01 << 1, /* enable ipv6 listening */
     OPTION_NAT = 0x01 << 2, /* use redirect instead of tproxy */
 };
 
@@ -32,7 +33,7 @@ enum {
 typedef struct {
     uv_tcp_t     *tunnel; /* tunnel object */
     uv_connect_t *connreq; /* connect request */
-    uv_timer_t   *timer; /* ack wait timer */
+    uv_timer_t   *acktimer; /* ack wait timer */
     hashset_t    *clients; /* all clients (set) */
     void         *buffer; /* tunnel recv buffer */
     uint32_t      nread; /* recv buffer data length */
@@ -42,11 +43,10 @@ typedef struct {
 
 /* client context typedef */
 typedef struct {
-    void       *clibuffer;
-    uv_write_t *cliwrtreq;
-    uv_write_t *tunwrtreq;
-    uint64_t    peerptr;
-    uint8_t     status;
+    void       *cltbuffer; /* client recv buffer */
+    uv_write_t *tunwrtreq; /* write data to tunnel */
+    uv_write_t *cltwrtreq; /* write data to client */
+    uint8_t     cltstatus; /* client stream status */
 } client_data_t;
 
 /* function declaration */
