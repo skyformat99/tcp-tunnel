@@ -56,7 +56,7 @@ static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep);
 static void tunnel_connect_cb(uv_connect_t *connreq, int status);
 static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf);
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf);
-static bool tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
+static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
 static void tunnel_write_cb(uv_write_t *writereq, int status);
 static void tunnel_timer_cb(uv_timer_t *acktimer);
 static void tunnel_close_cb(uv_handle_t *tunnel);
@@ -71,9 +71,9 @@ static void client_elemfree_cb(void *elem);
 /* static global variables */
 static bool      g_verbose                = false; /* verbose mode */
 static uint8_t   g_options                = OPTION_IP4 | OPTION_IP6;
-static uint16_t  g_thread_num             = THREAD_NUMBER_DEFAULT;
-static uint32_t  g_cli_bufsize            = TCPCLIENT_BUFSIZE_DEFAULT;
-static uint32_t  g_tun_bufsize            = TCPTUNNEL_BUFSIZE_DEFAULT;
+static uint8_t   g_thread_num             = CLIENT_THREADNUM_DEFAULT;
+static uint32_t  g_clt_bufsize            = CLTSTREAM_BUFSIZE_DEFAULT;
+static uint32_t  g_tun_bufsize            = TUNSTREAM_BUFSIZE_DEFAULT;
 static uint8_t   g_ackwait_sec            = CLIENT_ACKWAITSEC_DEFAULT;
 static uint32_t  g_socket_mark            = 0; /* 0 means disabled */
 
@@ -96,9 +96,9 @@ static void print_command_help(void) {
            " -l, --listen-port <port>           listen port number, default: 61080\n"
            " -j, --thread-num <num>             number of worker threads, default: 2\n"
            " -a, --ack-timeout <sec>            tcp tunnel ack timeout sec, default: 5\n"
-           " -z, --cli-bufsize <size>           client recv buffer size, default: 8192\n"
+           " -z, --clt-bufsize <size>           client recv buffer size, default: 8192\n"
            " -Z, --tun-bufsize <size>           tunnel recv buffer size, default: 32768\n"
-           " -m, --set-mark <mark>              use mark to tag the packets going out\n"
+           " -m, --set-mark <mark>              set firewall mark for outgoing packets\n"
            " -R, --redirect                     use redirect(nat) instead of tproxy\n"
            " -4, --ipv4-only                    listen ipv4 only, aka: disable ipv6\n"
            " -6, --ipv6-only                    listen ipv6 only, aka: disable ipv4\n"
@@ -133,7 +133,7 @@ static void parse_command_args(int argc, char *argv[]) {
     opterr = 0;
     int optindex = -1;
     int shortopt = -1;
-    char *opt_server_addr = NULL;
+    const char *opt_server_addr = NULL;
 
     while ((shortopt = getopt_long(argc, argv, optstr, options, &optindex)) != -1) {
         switch (shortopt) {
@@ -199,15 +199,15 @@ static void parse_command_args(int argc, char *argv[]) {
                 }
                 break;
             case 'z':
-                g_cli_bufsize = strtol(optarg, NULL, 10);
-                if (g_cli_bufsize < 1024) {
+                g_clt_bufsize = strtol(optarg, NULL, 10);
+                if (g_clt_bufsize < TCPSTREAM_BUFSIZE_MINIMUM) {
                     printf("[parse_command_args] buffer size is at least 1024 bytes: %s\n", optarg);
                     goto PRINT_HELP_AND_EXIT;
                 }
                 break;
             case 'Z':
                 g_tun_bufsize = strtol(optarg, NULL, 10);
-                if (g_tun_bufsize < 1024) {
+                if (g_tun_bufsize < TCPSTREAM_BUFSIZE_MINIMUM) {
                     printf("[parse_command_args] buffer size is at least 1024 bytes: %s\n", optarg);
                     goto PRINT_HELP_AND_EXIT;
                 }
@@ -221,6 +221,8 @@ static void parse_command_args(int argc, char *argv[]) {
                 break;
             case 'R':
                 g_options |= OPTION_NAT;
+                strcpy(g_bind_ipstr4, IP4ADDRSTR_WILDCARD);
+                strcpy(g_bind_ipstr6, IP6ADDRSTR_WILDCARD);
                 break;
             case '4':
                 g_options &= ~OPTION_IP6;
@@ -258,17 +260,17 @@ static void parse_command_args(int argc, char *argv[]) {
         goto PRINT_HELP_AND_EXIT;
     }
 
-    if (g_options & OPTION_NAT) {
-        strcpy(g_bind_ipstr4, IP4ADDRSTR_WILDCARD);
-        strcpy(g_bind_ipstr6, IP6ADDRSTR_WILDCARD);
-    }
     build_ipv4_addr(&g_bind_skaddr4, g_bind_ipstr4, g_bind_portno);
     build_ipv6_addr(&g_bind_skaddr6, g_bind_ipstr6, g_bind_portno);
 
     if (opt_server_addr) {
         build_addr_byhostname((void *)&g_svr_skaddr, g_svr_ipstr, opt_server_addr, g_svr_portno);
     } else {
-        build_ipv4_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
+        if (get_ipstr_family(g_svr_ipstr) == AF_INET) {
+            build_ipv4_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
+        } else {
+            build_ipv6_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
+        }
     }
     return;
 
@@ -283,9 +285,9 @@ int main(int argc, char *argv[]) {
     LOGINF("[main] server address: %s#%hu", g_svr_ipstr, g_svr_portno);
     if (g_options & OPTION_IP4) LOGINF("[main] listen address: %s#%hu", g_bind_ipstr4, g_bind_portno);
     if (g_options & OPTION_IP6) LOGINF("[main] listen address: %s#%hu", g_bind_ipstr6, g_bind_portno);
-    LOGINF("[main] number of threads: %hu", g_thread_num);
+    LOGINF("[main] number of threads: %hhu", g_thread_num);
     LOGINF("[main] tunnel ack timeout: %hhu", g_ackwait_sec);
-    LOGINF("[main] client buffer size: %u", g_cli_bufsize);
+    LOGINF("[main] client buffer size: %u", g_clt_bufsize);
     LOGINF("[main] tunnel buffer size: %u", g_tun_bufsize);
     if (g_socket_mark) LOGINF("[main] outgoing packet mark: %u", g_socket_mark);
     if (g_options & OPTION_NAT) LOGINF("[main] use redirect instead of tproxy");
@@ -312,13 +314,16 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
     if (g_options & OPTION_IP4) {
         uv_tcp_t *listener = malloc(sizeof(uv_tcp_t));
         listener->data = (void *)OPTION_IP4;
+
         uv_tcp_init(loop, listener);
         uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp4_bindsock() : new_tcp4_bindsock_tproxy());
+
         int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr4, 0);
         if (retval < 0) {
             LOGERR("[run_event_loop] failed to bind address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
+
         retval = uv_listen((void *)listener, SOMAXCONN, client_accept_cb);
         if (retval < 0) {
             LOGERR("[run_event_loop] failed to listen address for tcp4 socket: (%d) %s", -retval, uv_strerror(retval));
@@ -329,13 +334,16 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
     if (g_options & OPTION_IP6) {
         uv_tcp_t *listener = malloc(sizeof(uv_tcp_t));
         listener->data = (void *)OPTION_IP6;
+
         uv_tcp_init(loop, listener);
         uv_tcp_open(listener, g_options & OPTION_NAT ? new_tcp6_bindsock() : new_tcp6_bindsock_tproxy());
+
         int retval = uv_tcp_bind(listener, (void *)&g_bind_skaddr6, 0);
         if (retval < 0) {
             LOGERR("[run_event_loop] failed to bind address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
             exit(-retval);
         }
+
         retval = uv_listen((void *)listener, SOMAXCONN, client_accept_cb);
         if (retval < 0) {
             LOGERR("[run_event_loop] failed to listen address for tcp6 socket: (%d) %s", -retval, uv_strerror(retval));
@@ -345,15 +353,14 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
 
     loop_data->tunnel = malloc(sizeof(uv_tcp_t));
     loop_data->connreq = malloc(sizeof(uv_connect_t));
-    loop_data->timer = malloc(sizeof(uv_timer_t));
+    loop_data->acktimer = malloc(sizeof(uv_timer_t));
     loop_data->clients = hashset_new();
     loop_data->buffer = malloc(g_tun_bufsize);
     loop_data->nread = 0;
     loop_data->offset = 0;
     loop_data->isready = false;
 
-    uv_timer_t *acktimer = loop_data->timer;
-    uv_timer_init(loop, acktimer);
+    uv_timer_init(loop, loop_data->acktimer);
     tunnel_try_connect(loop, false);
 
     uv_run(loop, UV_RUN_DEFAULT);

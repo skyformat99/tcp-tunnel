@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #undef _GNU_SOURCE
 
 #ifndef SO_ORIGINAL_DST
@@ -16,6 +17,14 @@
 #ifndef IP6T_SO_ORIGINAL_DST
 #define IP6T_SO_ORIGINAL_DST 80
 #endif
+
+/* setsockopt(TCP_NODELAY) */
+void set_no_delay(int sockfd) {
+    if (setsockopt(sockfd, SOL_TCP, TCP_NODELAY, &(int){1}, sizeof(int))) {
+        LOGERR("[set_no_delay] setsockopt(%d, TCP_NODELAY): (%d) %s", sockfd, errno, errstring(errno));
+        exit(errno);
+    }
+}
 
 /* setsockopt(IPV6_V6ONLY) */
 void set_ipv6_only(int sockfd) {
@@ -92,6 +101,22 @@ int new_tcp6_socket(void) {
         LOGERR("[new_tcp6_socket] socket(AF_INET6, SOCK_STREAM): (%d) %s", errno, errstring(errno));
         exit(errno);
     }
+    return sockfd;
+}
+
+/* create tcp socket use to connect (ipv4) */
+int new_tcp4_connsock(uint32_t somark) {
+    int sockfd = new_tcp4_socket();
+    set_no_delay(sockfd);
+    if (somark) set_socket_mark(sockfd, somark);
+    return sockfd;
+}
+
+/* create tcp socket use to connect (ipv6) */
+int new_tcp6_connsock(uint32_t somark) {
+    int sockfd = new_tcp6_socket();
+    set_no_delay(sockfd);
+    if (somark) set_socket_mark(sockfd, somark);
     return sockfd;
 }
 

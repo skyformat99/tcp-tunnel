@@ -31,6 +31,9 @@ typedef struct sockaddr     skaddr_t;
 typedef struct sockaddr_in  skaddr4_t;
 typedef struct sockaddr_in6 skaddr6_t;
 
+/* setsockopt(TCP_NODELAY) */
+void set_no_delay(int sockfd);
+
 /* setsockopt(IPV6_V6ONLY) */
 void set_ipv6_only(int sockfd);
 
@@ -57,6 +60,12 @@ int new_tcp4_socket(void);
 
 /* create non-blocking tcp socket (ipv6) */
 int new_tcp6_socket(void);
+
+/* create tcp socket use to connect (ipv4) */
+int new_tcp4_connsock(uint32_t somark);
+
+/* create tcp socket use to connect (ipv6) */
+int new_tcp6_connsock(uint32_t somark);
 
 /* create tcp socket use to listen (ipv4) */
 int new_tcp4_bindsock(void);
