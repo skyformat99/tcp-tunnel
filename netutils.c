@@ -188,3 +188,17 @@ int get_ipstr_family(const char *ipstr) {
         return -1;
     }
 }
+
+/* uv_close() wrapper function */
+void uv_tcpclose(uv_tcp_t *handle, uv_close_cb close_cb) {
+    uv_close((void *)handle, close_cb);
+}
+
+/* uv_tcp_close_reset() wrapper function */
+void uv_tcpreset(uv_tcp_t *handle, uv_close_cb close_cb) {
+#if UV_VERSION_MAJOR >= 1 && UV_VERSION_MINOR >= 32 && UV_VERSION_PATCH >= 0
+    uv_tcp_close_reset((void *)handle, close_cb);
+#else
+    uv_close((void *)handle, close_cb);
+#endif
+}

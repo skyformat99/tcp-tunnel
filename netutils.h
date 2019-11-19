@@ -94,6 +94,12 @@ void parse_ipv6_addr(const skaddr6_t *addr, char *ipstr, portno_t *portno);
 /* AF_INET or AF_INET6 or -1(invalid ip string) */
 int get_ipstr_family(const char *ipstr);
 
+/* uv_close() wrapper function */
+void uv_tcpclose(uv_tcp_t *handle, uv_close_cb close_cb);
+
+/* uv_tcp_close_reset() wrapper function */
+void uv_tcpreset(uv_tcp_t *handle, uv_close_cb close_cb);
+
 /* strerror thread safe version (libuv) */
 #define errstring(errnum) uv_strerror(-(errnum))
 
