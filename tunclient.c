@@ -52,7 +52,7 @@ typedef struct {
 /* function declaration */
 static void* run_event_loop(void *arg);
 
-static void tunnel_try_connect(uv_loop_t *loop, bool is_sleep);
+static void tunnel_do_close(uv_loop_t *loop);
 static void tunnel_connect_cb(uv_connect_t *connreq, int status);
 static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf);
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf);
@@ -118,7 +118,7 @@ static void parse_command_args(int argc, char *argv[]) {
         {"listen-port",   required_argument, NULL, 'l'},
         {"thread-num",    required_argument, NULL, 'j'},
         {"ack-timeout",   required_argument, NULL, 'a'},
-        {"cli-bufsize",   required_argument, NULL, 'z'},
+        {"clt-bufsize",   required_argument, NULL, 'z'},
         {"tun-bufsize",   required_argument, NULL, 'Z'},
         {"set-mark",      required_argument, NULL, 'm'},
         {"redirect",      no_argument,       NULL, 'R'},
@@ -133,12 +133,18 @@ static void parse_command_args(int argc, char *argv[]) {
     opterr = 0;
     int optindex = -1;
     int shortopt = -1;
-    const char *opt_server_addr = NULL;
-
     while ((shortopt = getopt_long(argc, argv, optstr, options, &optindex)) != -1) {
         switch (shortopt) {
             case 's':
-                opt_server_addr = optarg;
+                if (strlen(optarg) + 1 > IP6STRLEN) {
+                    printf("[parse_command_args] ipv6 address max length is 45: %s\n", optarg);
+                    goto PRINT_HELP_AND_EXIT;
+                }
+                if (get_ipstr_family(optarg) == -1) {
+                    printf("[parse_command_args] invalid server ip address: %s\n", optarg);
+                    goto PRINT_HELP_AND_EXIT;
+                }
+                strcpy(g_svr_ipstr, optarg);
                 break;
             case 'p':
                 if (strlen(optarg) + 1 > PORTSTRLEN) {
@@ -215,7 +221,7 @@ static void parse_command_args(int argc, char *argv[]) {
             case 'm':
                 g_socket_mark = strtol(optarg, NULL, 10);
                 if (g_socket_mark == 0) {
-                    printf("[parse_command_args] invalid outgoing socket mark value: %s\n", optarg);
+                    printf("[parse_command_args] invalid outgoing packet socket mark: %s\n", optarg);
                     goto PRINT_HELP_AND_EXIT;
                 }
                 break;
@@ -263,14 +269,10 @@ static void parse_command_args(int argc, char *argv[]) {
     build_ipv4_addr(&g_bind_skaddr4, g_bind_ipstr4, g_bind_portno);
     build_ipv6_addr(&g_bind_skaddr6, g_bind_ipstr6, g_bind_portno);
 
-    if (opt_server_addr) {
-        build_addr_byhostname((void *)&g_svr_skaddr, g_svr_ipstr, opt_server_addr, g_svr_portno);
+    if (get_ipstr_family(g_svr_ipstr) == AF_INET) {
+        build_ipv4_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
     } else {
-        if (get_ipstr_family(g_svr_ipstr) == AF_INET) {
-            build_ipv4_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
-        } else {
-            build_ipv6_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
-        }
+        build_ipv6_addr((void *)&g_svr_skaddr, g_svr_ipstr, g_svr_portno);
     }
     return;
 
