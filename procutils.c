@@ -62,13 +62,15 @@ void run_as_user(const char *username, char *const argv[]) {
         exit(errno);
     }
 
+    if (!argv) return;
+
     static char exec_file_abspath[PATH_MAX] = {0};
     if (readlink("/proc/self/exe", exec_file_abspath, PATH_MAX - 1) < 0) {
         LOGERR("[run_as_user] failed to get the abspath of execfile: (%d) %s", errno, errstring(errno));
         exit(errno);
     }
 
-    if (argv && execv(exec_file_abspath, argv) < 0) {
+    if (execv(exec_file_abspath, argv) < 0) {
         LOGERR("[run_as_user] failed to call execv(%s, args): (%d) %s", exec_file_abspath, errno, errstring(errno));
         exit(errno);
     }
