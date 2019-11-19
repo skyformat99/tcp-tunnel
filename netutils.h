@@ -94,11 +94,15 @@ void parse_ipv6_addr(const skaddr6_t *addr, char *ipstr, portno_t *portno);
 /* AF_INET or AF_INET6 or -1(invalid ip string) */
 int get_ipstr_family(const char *ipstr);
 
-/* uv_close() wrapper function */
-void uv_tcpclose(uv_tcp_t *handle, uv_close_cb close_cb);
+/* uv_close() wrapper function (macro definition) */
+#define uv_tcpclose(tcp_handle, close_cb) uv_close((void *)(tcp_handle), close_cb)
 
-/* uv_tcp_close_reset() wrapper function */
-void uv_tcpreset(uv_tcp_t *handle, uv_close_cb close_cb);
+/* uv_tcp_close_reset() wrapper function (macro definition) */
+#if UV_VERSION_MAJOR >= 1 && UV_VERSION_MINOR >= 32 && UV_VERSION_PATCH >= 0 /* $version >= v1.32.0 */
+#define uv_tcpreset(tcp_handle, close_cb) uv_tcp_close_reset((void *)(tcp_handle), close_cb)
+#else /* $version < v1.32.0 */
+#define uv_tcpreset(tcp_handle, close_cb) uv_close((void *)(tcp_handle), close_cb)
+#endif
 
 /* strerror thread safe version (libuv) */
 #define errstring(errnum) uv_strerror(-(errnum))
