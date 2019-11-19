@@ -91,9 +91,6 @@ void parse_ipv4_addr(const skaddr4_t *addr, char *ipstr, portno_t *portno);
 /* parse ipstr and portno from ipv6 socket address */
 void parse_ipv6_addr(const skaddr6_t *addr, char *ipstr, portno_t *portno);
 
-/* build socket address by hostname (getaddrinfo) */
-void build_addr_byhostname(skaddr_t *addr, char *ipstr, const char *hostname, portno_t portno);
-
 /* AF_INET or AF_INET6 or -1(invalid ip string) */
 int get_ipstr_family(const char *ipstr);
 

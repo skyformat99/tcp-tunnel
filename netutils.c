@@ -177,28 +177,6 @@ void parse_ipv6_addr(const skaddr6_t *addr, char *ipstr, portno_t *portno) {
     *portno = ntohs(addr->sin6_port);
 }
 
-/* build socket address by hostname (getaddrinfo) */
-void build_addr_byhostname(skaddr_t *addr, char *ipstr, const char *hostname, portno_t portno) {
-    struct addrinfo *response = NULL;
-    int retval = getaddrinfo(hostname, NULL, &(struct addrinfo){.ai_socktype = SOCK_STREAM}, &response);
-    if (retval) {
-        LOGERR("[build_addr_byhostname] failed to resolve hostname '%s': (%d) %s", hostname, retval, gai_strerror(retval));
-        exit(retval);
-    }
-    memcpy(addr, response->ai_addr, response->ai_addrlen);
-    freeaddrinfo(response);
-
-    if (addr->sa_family == AF_INET) {
-        skaddr4_t *addr4 = (void *)addr;
-        addr4->sin_port = htons(portno);
-        if (ipstr) inet_ntop(AF_INET, &addr4->sin_addr, ipstr, IP4STRLEN);
-    } else {
-        skaddr6_t *addr6 = (void *)addr;
-        addr6->sin6_port = htons(portno);
-        if (ipstr) inet_ntop(AF_INET6, &addr6->sin6_addr, ipstr, IP6STRLEN);
-    }
-}
-
 /* AF_INET or AF_INET6 or -1(invalid ip string) */
 int get_ipstr_family(const char *ipstr) {
     if (!ipstr) return -1;
