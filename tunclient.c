@@ -52,13 +52,13 @@ typedef struct {
 /* function declaration */
 static void* run_event_loop(void *arg);
 
-static void tunnel_do_close(uv_loop_t *loop);
 static void tunnel_connect_cb(uv_connect_t *connreq, int status);
 static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf);
 static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf);
 static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
 static void tunnel_write_cb(uv_write_t *writereq, int status);
 static void tunnel_timer_cb(uv_timer_t *acktimer);
+static void tunnel_do_close(uv_loop_t *loop);
 static void tunnel_close_cb(uv_handle_t *tunnel);
 
 static void client_accept_cb(uv_stream_t *listener, int status);
@@ -363,8 +363,64 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
     loop_data->isready = false;
 
     uv_timer_init(loop, loop_data->acktimer);
-    tunnel_try_connect(loop, false);
+    // TODO
 
     uv_run(loop, UV_RUN_DEFAULT);
     return NULL;
+}
+
+static void tunnel_connect_cb(uv_connect_t *connreq, int status) {
+    // TODO
+}
+
+static void tunnel_alloc_cb(uv_handle_t *tunnel, size_t sugsize, uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length) {
+    // TODO
+}
+
+static void tunnel_write_cb(uv_write_t *writereq, int status) {
+    // TODO
+}
+
+static void tunnel_timer_cb(uv_timer_t *acktimer) {
+    // TODO
+}
+
+static void tunnel_do_close(uv_loop_t *loop) {
+    // TODO
+}
+
+static void tunnel_close_cb(uv_handle_t *tunnel) {
+    // TODO
+}
+
+static void client_accept_cb(uv_stream_t *listener, int status) {
+    // TODO
+}
+
+static void client_alloc_cb(uv_handle_t *client, size_t sugsize, uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void client_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *uvbuf) {
+    // TODO
+}
+
+static void client_write_cb(uv_write_t *writereq, int status) {
+    // TODO
+}
+
+static void client_close_cb(uv_handle_t *client) {
+    // TODO
+}
+
+static void client_elemfree_cb(void *elem) {
+    // TODO
 }
