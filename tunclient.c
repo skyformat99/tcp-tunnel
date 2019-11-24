@@ -59,7 +59,7 @@ static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t le
 static void tunnel_write_cb(uv_write_t *writereq, int status);
 static void tunnel_timer_cb(uv_timer_t *acktimer);
 static void tunnel_do_close(uv_handle_t *tunnel);
-static void tunnel_close_cb(uv_handle_t *tunnel);
+static void tunnel_try_connect(uv_handle_t *tunnel);
 
 static void client_accept_cb(uv_stream_t *listener, int status);
 static void client_alloc_cb(uv_handle_t *client, size_t sugsize, uv_buf_t *uvbuf);
@@ -310,9 +310,6 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
     uv_loop_t *loop = &(uv_loop_t){0};
     uv_loop_init(loop);
 
-    loop_data_t *loop_data = &(loop_data_t){0};
-    loop->data = loop_data;
-
     if (g_options & OPTION_IP4) {
         uv_tcp_t *listener = malloc(sizeof(uv_tcp_t));
         listener->data = (void *)OPTION_IP4;
@@ -353,6 +350,8 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
         }
     }
 
+    loop->data = &(loop_data_t){0};
+    loop_data_t *loop_data = loop->data;
     loop_data->tunnel = malloc(sizeof(uv_tcp_t));
     loop_data->connreq = malloc(sizeof(uv_connect_t));
     loop_data->acktimer = malloc(sizeof(uv_timer_t));
@@ -362,8 +361,8 @@ static void* run_event_loop(void *arg __attribute__((unused))) {
     loop_data->offset = 0;
     loop_data->isready = false;
 
-    uv_timer_init(loop, loop_data->acktimer);
-    // TODO
+    uv_tcp_init(loop, loop_data->tunnel);
+    tunnel_try_connect((void *)loop_data->tunnel);
 
     uv_run(loop, UV_RUN_DEFAULT);
     return NULL;
@@ -397,7 +396,7 @@ static void tunnel_do_close(uv_handle_t *tunnel) {
     // TODO
 }
 
-static void tunnel_close_cb(uv_handle_t *tunnel) {
+static void tunnel_try_connect(uv_handle_t *tunnel) {
     // TODO
 }
 
