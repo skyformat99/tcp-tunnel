@@ -58,7 +58,7 @@ static void tunnel_read_cb(uv_stream_t *tunnel, ssize_t nread, const uv_buf_t *u
 static void tunnel_handle_data(uv_stream_t *tunnel, uint8_t *buffer, uint32_t length);
 static void tunnel_write_cb(uv_write_t *writereq, int status);
 static void tunnel_timer_cb(uv_timer_t *acktimer);
-static void tunnel_do_close(uv_loop_t *loop);
+static void tunnel_do_close(uv_handle_t *tunnel);
 static void tunnel_close_cb(uv_handle_t *tunnel);
 
 static void client_accept_cb(uv_stream_t *listener, int status);
@@ -393,7 +393,7 @@ static void tunnel_timer_cb(uv_timer_t *acktimer) {
     // TODO
 }
 
-static void tunnel_do_close(uv_loop_t *loop) {
+static void tunnel_do_close(uv_handle_t *tunnel) {
     // TODO
 }
 
