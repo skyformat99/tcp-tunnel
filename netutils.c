@@ -19,7 +19,7 @@
 
 /* setsockopt(TCP_NODELAY) */
 void set_no_delay(int sockfd) {
-    if (setsockopt(sockfd, SOL_TCP, TCP_NODELAY, &(int){1}, sizeof(int))) {
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &(int){1}, sizeof(int))) {
         LOGERR("[set_no_delay] setsockopt(%d, TCP_NODELAY): (%d) %s", sockfd, errno, errstring(errno));
         exit(errno);
     }
