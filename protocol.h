@@ -45,12 +45,14 @@ typedef struct {
 } __attribute__((packed)) msg_tcp_data_t;
 
 typedef struct {
-    uint8_t msg_type;
+    uint8_t  msg_type;
+    uint16_t peer_ctxid;
 } __attribute__((packed)) msg_tcp_close_t;
 
 typedef struct {
-    uint8_t msg_type;
-    int32_t sys_errno;
+    uint8_t  msg_type;
+    uint16_t peer_ctxid;
+    int32_t  peer_errno;
 } __attribute__((packed)) msg_tcp_error_t;
 
 typedef struct {
