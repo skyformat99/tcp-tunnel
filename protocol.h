@@ -57,7 +57,8 @@ typedef struct {
 
 typedef struct {
     uint8_t  msg_type;
-    uint16_t src_ctxid;
+    uint32_t src_ipaddr;
+    uint16_t src_portno;
     uint32_t dst_ipaddr;
     uint16_t dst_portno;
     uint16_t data_length;
@@ -66,7 +67,8 @@ typedef struct {
 
 typedef struct {
     uint8_t  msg_type;
-    uint16_t src_ctxid;
+    uint8_t  src_ipaddr[16];
+    uint16_t src_portno;
     uint8_t  dst_ipaddr[16];
     uint16_t dst_portno;
     uint16_t data_length;
