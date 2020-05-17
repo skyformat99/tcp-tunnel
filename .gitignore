@@ -1,6 +1,4 @@
 *.o
 *.gch
-tun-client
-tun-server
-tunclient
-tunserver
+tcptun-client
+tcptun-server
