@@ -45,7 +45,7 @@ void sendqueue_push(sendqueue_t *queue, void *element) {
 
 void* sendqueue_peek(sendqueue_t *queue) {
     arrayqueue_t *q = queue->headqueue;
-    if (q && q->headindex != 1) {
+    if (q && q->headindex != -1) {
         return q->array[q->headindex];
     }
     return NULL;
