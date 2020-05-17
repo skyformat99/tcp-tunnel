@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include "sendqueue.h"
-#include <stdint.h>
 #include <stdlib.h>
 
 #define QSIZE 64
